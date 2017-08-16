@@ -33,3 +33,14 @@ def get_list_of_suites_from_soapui_project(soapui_project_path):
             test_suites.append(child.attrib['name'])
 
     return test_suites
+
+
+
+
+"""
+- add possibility to run cli command
+- function that takes part or full suite name and return list appropriate names
+- function that run soapUI from cli and takes file path, test name of set of test suites like "Smoke", the rest of soapUI params
+- iterate though all of soapUI projects
+- readme
+""" 
