@@ -1,5 +1,6 @@
 import getopt
 from os import walk, path
+from subprocess import call
 import sys
 import xml.etree.ElementTree as ET
 from smtpd import usage
@@ -80,32 +81,34 @@ def build_string_of_options(argv):
     return options
 
 
-def get_command_to_run_soapui(soapui_project_path, args):
-    command_to_execute = 'testrunner.bat'
-    params_for_command = ''
+def build_command_to_run_soapui(program, soapui_project_path, args):
+    program = program  # '/Applications/SoapUI-5.2.1.app/Contents/Resources/app/bin/testrunner.sh'
+    command = [program]
 
     if args is not None:
         for arg in args:
-            params_for_command = params_for_command + ' ' + ''.join(arg)
+            command.append(''.join(arg))
 
-    command_to_execute = command_to_execute + params_for_command + ' ' + soapui_project_path
+    command.append(soapui_project_path)
 
-    return command_to_execute
+    return command
 
 
 def main(argv):
     soapui_root_dir = argv[-1:][0]
+    program = argv[0]
+    print(program)
     options = build_string_of_options(argv)
+    result = []
 
     try:
-        opts, args = getopt.getopt(argv[:-1], options)
+        opts, args = getopt.getopt(argv[1:-1], options)
     except getopt.GetoptError as err:
         print(str(err))
-        sys.exit(2)
+        sys.exit(2)  # cli syntax error
 
     # get test suite name from arguments
     test_suite_name_from_cli = get_option_value(opts, '-s')
-
     soapip_projects_list = get_list_of_soapui_projects(soapui_root_dir)
 
     for soapui_project in soapip_projects_list:
@@ -115,15 +118,24 @@ def main(argv):
         for test_suite_name in test_suite_names:
             # run soapui project with params
             opts = set_option_value(opts, '-s', test_suite_name)
-            print(get_command_to_run_soapui(soapui_project, opts))
+            command_to_run = build_command_to_run_soapui(program, soapui_project, opts)
+            print(command_to_run)
+            result.append(call(command_to_run))
 
-            pass
+    if all(i > 0 for i in result):
+        sys.exit(1)  # if something fails
 
 
 if __name__ == "__main__":
     main(sys.argv[1:])
 
 """
-- run command in python
+TODO:
+
+- define first param as program that will be running soap ui
+- possible to run only one project
+- possible to run only one test suite
+- possible to exclude project
+- possible to exclude test suite
 - readme
 """
