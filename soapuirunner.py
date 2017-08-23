@@ -1,12 +1,10 @@
 import getopt
 from os import walk, path
+import platform
 from subprocess import call
 import sys
 import xml.etree.ElementTree as ET
 from smtpd import usage
-
-root_folder = '/Users/user/Projects/SoapUI'
-
 
 def get_list_of_soapui_projects(root_folder):
     soapui_projects = []
@@ -48,7 +46,11 @@ def build_list_of_suites(test_suite, suites_list):
 
 
 def get_option_value(opts_list, opt_name):
-    return [opt for opt in opts_list if opt[0] == opt_name][0][1]
+    for opt in opts_list:
+        if opt[0] == opt_name:
+            return opt[1]
+
+    return None
 
 
 def set_option_value(opts_list, opt_name, opt_value):
@@ -62,6 +64,27 @@ def set_option_value(opts_list, opt_name, opt_value):
             opts_list.insert(i, opt)
 
     return opts_list
+
+
+def get_platform_name():
+    platform_name = platform.system().lower()
+    platform_types = {
+        'unix': [
+            'linux',
+            'linux2',
+            'darwin'  # mac os x
+        ],
+        'win': [
+            'win32',
+            'win64',
+            'windows'
+        ]
+    }
+
+    for platform_type, platform_names in platform_types.items():
+        for name in platform_names:
+            if name == platform_name:
+                return platform_type
 
 
 def build_string_of_options(argv):
@@ -81,12 +104,21 @@ def build_string_of_options(argv):
     return options
 
 
-def build_command_to_run_soapui(program, soapui_project_path, args):
-    program = program  # '/Applications/SoapUI-5.2.1.app/Contents/Resources/app/bin/testrunner.sh'
+def build_command_to_run_soapui(soapui_project_path, args, program=None,):
+    # setup default program to run soapUI from cli
+    if program is None:
+        platform_name = get_platform_name()
+
+        if platform_name == 'unix':
+            program = 'testrunner.sh'
+        if platform_name == 'win':
+            program = 'testrunner.bat'
+
     command = [program]
+    # '/Applications/SoapUI-5.2.1.app/Contents/Resources/app/bin/testrunner.sh'
 
     if args is not None:
-        for arg in args:
+        for arg in args[1:]:
             command.append(''.join(arg))
 
     command.append(soapui_project_path)
@@ -96,31 +128,30 @@ def build_command_to_run_soapui(program, soapui_project_path, args):
 
 def main(argv):
     soapui_root_dir = argv[-1:][0]
-    program = argv[0]
-    print(program)
     options = build_string_of_options(argv)
     result = []
 
     try:
-        opts, args = getopt.getopt(argv[1:-1], options)
+        opts, args = getopt.getopt(argv[:-1], options, ['prog='])
     except getopt.GetoptError as err:
         print(str(err))
         sys.exit(2)  # cli syntax error
 
     # get test suite name from arguments
-    test_suite_name_from_cli = get_option_value(opts, '-s')
+    test_suite_name = get_option_value(opts, '-s')
     soapip_projects_list = get_list_of_soapui_projects(soapui_root_dir)
 
     for soapui_project in soapip_projects_list:
         # if test suite has * at the end of the name that means we need to run all test suite started with name
         test_suite_names = get_list_of_suites_from_soapui_project(soapui_project)
-        test_suite_names = build_list_of_suites(test_suite_name_from_cli, test_suite_names)
+        test_suite_names = build_list_of_suites(test_suite_name, test_suite_names)
         for test_suite_name in test_suite_names:
             # run soapui project with params
             opts = set_option_value(opts, '-s', test_suite_name)
-            command_to_run = build_command_to_run_soapui(program, soapui_project, opts)
+            program = get_option_value(opts, '--prog')
+            command_to_run = build_command_to_run_soapui(soapui_project, opts, program)
             print(command_to_run)
-            result.append(call(command_to_run))
+            #result.append(call(command_to_run))
 
     if all(i > 0 for i in result):
         sys.exit(1)  # if something fails
@@ -132,7 +163,6 @@ if __name__ == "__main__":
 """
 TODO:
 
-- define first param as program that will be running soap ui
 - possible to run only one project
 - possible to run only one test suite
 - possible to exclude project
