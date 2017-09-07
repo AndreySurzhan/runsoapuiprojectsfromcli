@@ -15,6 +15,15 @@ CUSTOM_ARGS = [
 
 
 def get_list_of_soapui_projects(root_folder):
+    """Function that returns list of the soapUI project files
+
+    Args:
+        root_folder (str): full folder path where all soapUI projects are. Could be nested
+
+    Returns:
+        soapui_projects (str[]): List of strings. Each string is full file path
+
+    """
     soapui_projects = []
     if path.isfile(root_folder):
         if is_soapui_project_file(root_folder):
@@ -33,6 +42,17 @@ def get_list_of_soapui_projects(root_folder):
 
 
 def build_list_of_soapui_projects(project_list, exclude=None):
+    """Function that takes list of projects and
+    returns list of the soapUI project files based on what needs to be excluded
+
+        Args:
+            project_list (str[]): List of strings. Each string is full file path
+            exclude (?str[]): Optional. List of strings. Each string is soapUI project file name with extension
+
+        Returns:
+            project_list (str[]): List of strings. Each string is full file path
+
+    """
     if exclude:
         exclude = exclude.split(',')
         for project_to_exclude in exclude:
@@ -44,6 +64,15 @@ def build_list_of_soapui_projects(project_list, exclude=None):
 
 
 def is_soapui_project_file(full_file_path):
+    """Function that epaulets whether file is soapUI project
+
+        Args:
+            full_file_path (str): String that represents full file path with extension
+
+        Returns:
+            bool: True if it is soapUI project. False if opposite
+
+    """
     filename_without_extension, file_extension = path.splitext(full_file_path)
     if file_extension == '.xml':
         xml_root_tag = ET.parse(full_file_path).getroot().tag
@@ -54,6 +83,15 @@ def is_soapui_project_file(full_file_path):
 
 
 def get_list_of_suites_from_soapui_project(soapui_project_path):
+    """Function that takes soapUI project file and returns list of test suites names that are in that project
+
+        Args:
+            soapui_project_path (str): String that represents full file path with extension
+
+        Returns:
+            test_suites (str): List of strings. Each string is suite name
+
+    """
     root = ET.parse(soapui_project_path).getroot()
     test_suites = []
     for child in root:
@@ -63,6 +101,15 @@ def get_list_of_suites_from_soapui_project(soapui_project_path):
 
 
 def build_list_of_suites(test_suite, suites_list, exclude=None):
+    """Function that takes soapUI project file and returns list of test suites names that are in that project
+
+        Args:
+            soapui_project_path (str): String that represents full file path with extension
+
+        Returns:
+            test_suites (str): List of strings. Each string is suite name
+
+    """
     if test_suite.endswith('*'):
         suites_list = [suite for suite in suites_list if test_suite[:-1] in suite]
         if exclude:
@@ -77,6 +124,17 @@ def build_list_of_suites(test_suite, suites_list, exclude=None):
 
 
 def get_option_value(opts_list, opt_name):
+    """Function that gets value from list of options with values based on option name
+
+        Args:
+            opts_list (tuple[]): List of tuples. Where each tuple it is pare of option name and corresponding value
+                Example: [('-s', 'Test Suite'), (-r, '')]
+            opt_name (str): Name of cli option that is passed when soapuirunner.py is called.
+                Example: '-s'
+
+        Returns:
+            value [?str]: Value of given option. Can be None if option doesn't have value
+    """
     for opt in opts_list:
         if opt[0] == opt_name:
             return opt[1]
@@ -84,6 +142,17 @@ def get_option_value(opts_list, opt_name):
 
 
 def set_option_value(opts_list, opt_name, opt_value):
+    """Function that gets value from list of options with values based on option name
+
+        Args:
+            opts_list (tuple[]): List of tuples. Where each tuple it is pare of option name and corresponding value
+                Example: [('-s', 'Test Suite'), (-r, '')]
+            opt_name (str): Name of cli option that is passed when soapuirunner.py is called.
+                Example: '-s'
+
+        Returns:
+            value [?str]: Value of given option. Can be None if option doesn't have value
+    """
     for opt in opts_list:
         i = opts_list.index(opt)
         if opt[0] == opt_name:
@@ -96,6 +165,11 @@ def set_option_value(opts_list, opt_name, opt_value):
 
 
 def get_platform_name():
+    """Function that returns platform/operation system type
+
+        Returns:
+            platform_type (str): Can be 'unix' or 'win'
+    """
     platform_name = platform.system().lower()
     platform_types = {
         'unix': [
@@ -116,9 +190,23 @@ def get_platform_name():
 
 
 def build_string_of_options(argv):
+    """Function that builds and returns sting that will be used as 'options' argument for
+    getopt.getopt(args, options[, long_options]) based on passed arguments excluding custom args
+
+        Args:
+            argv (str[]): List of strings. Each string is cli option name with possible values
+                Example: ['-sTestSuite', '-r', -I, '--excludesuites=TestSuite1']
+
+        Returns:
+            options [str]:
+                Example: 's:rI'
+    """
     # parse arguments to build list of options for getopt
     options = ''
     for option in argv[:-1]:
+        # ignore custom args
+        if any(arg in option for arg in CUSTOM_ARGS):
+            continue
         if len(option) == 2:
             option = option[1:2]
         else:
@@ -131,6 +219,20 @@ def build_string_of_options(argv):
 
 
 def build_command_to_run_soapui(soapui_project_path, args, program=None):
+    """Function that builds and returns list of stings that will be used by os.call
+
+        Args:
+            soapui_project_path (str): String that represents full file path with extension
+            args (tuple[]): List of tuples. Where each tuple it is pare of option name and corresponding value
+                Example: [('-s', 'Test Suite'), (-r, '')]
+            program (?str): Optional. String that represents full file path to testrunner.bat or testrunner.sh
+                By default final command will have testrunner.sh or testrunner.bat based on os type
+
+        Returns:
+            command [str[]]:
+                Example: '['testrunner.sh', '-sSmoke-test1', '-r', '-I',
+                 '/Users/user/Projects/SoapUI/MK_API_clone1.xml']'
+    """
     # setup default program to run soapUI from cli
     if program is None:
         platform_name = get_platform_name()
@@ -141,13 +243,23 @@ def build_command_to_run_soapui(soapui_project_path, args, program=None):
     command = [program]
     if args is not None:
         for arg in args:
-            if arg[0].replace('--', '') not in CUSTOM_ARGS:
+            if not any(argument in arg[0] for argument in CUSTOM_ARGS):
                 command.append(''.join(arg))
     command.append(soapui_project_path)
     return command
 
 
 def main(argv):
+    """Main function that aggregates calls of all private functions in that package to execute generated cli command
+        based on params that were specified
+
+        Args:
+            argv (str[]): List of strings. Each string is cli option name with possible values
+                Example: ['-sTestSuite', '-r', -I, '--excludesuites=TestSuite1']
+
+        Returns:
+            status code
+    """
     soapui_root_dir = argv[-1:][0]
     options = build_string_of_options(argv)
     result = []
@@ -187,5 +299,4 @@ if __name__ == "__main__":
 TODO:
 
 - readme
-- docs
 """
